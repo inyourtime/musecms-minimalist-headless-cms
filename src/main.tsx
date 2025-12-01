@@ -7,6 +7,7 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { RouteErrorBoundary } from '@/components/RouteErrorBoundary';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 import '@/index.css';
 import { HomePage } from '@/pages/HomePage';
 import { ContentLibrary } from '@/pages/ContentLibrary';
@@ -14,51 +15,62 @@ import { EditorPage } from '@/pages/EditorPage';
 import { MediaLibrary } from '@/pages/MediaLibrary';
 import { ContentTypes } from '@/pages/ContentTypes';
 import { Settings } from '@/pages/Settings';
-import { DemoPage } from '@/pages/DemoPage'; // Keep demo page for now
-const queryClient = new QueryClient();
+import { Login } from '@/pages/Login';
+import { DemoPage } from '@/pages/DemoPage';
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 const router = createBrowserRouter([
   {
+    path: "/login",
+    element: <Login />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
     path: "/",
-    element: <HomePage />,
+    element: <ProtectedRoute><HomePage /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: "/library",
-    element: <ContentLibrary />,
+    element: <ProtectedRoute><ContentLibrary /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: "/editor/:entryId",
-    element: <EditorPage />,
+    element: <ProtectedRoute><EditorPage /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: "/editor",
-    element: <EditorPage />,
+    element: <ProtectedRoute><EditorPage /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: "/media",
-    element: <MediaLibrary />,
+    element: <ProtectedRoute><MediaLibrary /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: "/types",
-    element: <ContentTypes />,
+    element: <ProtectedRoute><ContentTypes /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   },
   {
     path: "/settings",
-    element: <Settings />,
+    element: <ProtectedRoute><Settings /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   },
   {
-    path: "/demo", // Keep demo page accessible
-    element: <DemoPage />,
+    path: "/demo",
+    element: <ProtectedRoute><DemoPage /></ProtectedRoute>,
     errorElement: <RouteErrorBoundary />,
   },
 ]);
-// Do not touch this code
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>

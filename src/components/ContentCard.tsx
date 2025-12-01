@@ -3,17 +3,19 @@ import { motion } from 'framer-motion';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
 import type { ContentEntry, Media } from '@shared/types';
 import { formatDistanceToNow } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api-client';
 import { AspectRatio } from './ui/aspect-ratio';
-import { Skeleton } from './ui/skeleton';
 interface ContentCardProps {
   entry: ContentEntry;
+  isSelected: boolean;
+  onSelectToggle: (id: string) => void;
 }
-export function ContentCard({ entry }: ContentCardProps) {
+export function ContentCard({ entry, isSelected, onSelectToggle }: ContentCardProps) {
   const coverImageId = entry.data.coverImage;
   const { data: mediaData } = useQuery({
     queryKey: ['media'],
@@ -23,12 +25,11 @@ export function ContentCard({ entry }: ContentCardProps) {
   const coverImage = mediaData?.items.find(m => m.id === coverImageId);
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0 } }}
       whileHover={{ scale: 1.02, y: -4 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
     >
-      <Card className="flex flex-col h-full overflow-hidden rounded-xl shadow-sm transition-shadow duration-200 hover:shadow-lg">
+      <Card className={`flex flex-col h-full overflow-hidden rounded-xl shadow-sm transition-all duration-200 hover:shadow-lg ${isSelected ? 'ring-2 ring-primary' : ''}`}>
         {coverImage ? (
           <AspectRatio ratio={16 / 9}>
             <img src={coverImage.url} alt={entry.data.title || 'Cover image'} className="object-cover w-full h-full" />
@@ -38,9 +39,12 @@ export function ContentCard({ entry }: ContentCardProps) {
         )}
         <CardHeader>
           <div className="flex justify-between items-start">
-            <CardTitle className="text-lg leading-tight pr-2">
-              <Link to={`/editor/${entry.id}`} className="hover:underline">{entry.data.title || 'Untitled Entry'}</Link>
-            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Checkbox checked={isSelected} onCheckedChange={() => onSelectToggle(entry.id)} />
+              <CardTitle className="text-lg leading-tight pr-2">
+                <Link to={`/editor/${entry.id}`} className="hover:underline">{entry.data.title || 'Untitled Entry'}</Link>
+              </CardTitle>
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
