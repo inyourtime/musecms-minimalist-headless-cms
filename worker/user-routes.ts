@@ -11,6 +11,8 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       ContentTypeEntity.ensureSeed(c.env),
       ContentEntryEntity.ensureSeed(c.env),
       MediaEntity.ensureSeed(c.env),
+      UserEntity.ensureSeed(c.env),
+      ChatBoardEntity.ensureSeed(c.env),
     ]);
     await next();
   });
@@ -26,6 +28,18 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     if (!body.id || !body.title || !body.fields) return bad(c, 'id, title, and fields are required');
     const newType: ContentType = { id: body.id, slug: body.id, title: body.title, fields: body.fields };
     return ok(c, await ContentTypeEntity.create(c.env, newType));
+  });
+  app.put('/api/content-types/:id', async (c) => {
+    const id = c.req.param('id');
+    const body = await c.req.json<Partial<ContentType>>();
+    const entity = new ContentTypeEntity(c.env, id);
+    if (!await entity.exists()) return notFound(c);
+    const updated = await entity.mutate(s => ({ ...s, ...body }));
+    return ok(c, updated);
+  });
+  app.delete('/api/content-types/:id', async (c) => {
+    const deleted = await ContentTypeEntity.delete(c.env, c.req.param('id'));
+    return ok(c, { deleted });
   });
   // ENTRIES
   app.get('/api/entries', async (c) => {
@@ -64,6 +78,11 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     const body = await c.req.json<{ data: Record<string, any>, status: 'draft' | 'published', slug: string, version: number }>();
     const entity = new ContentEntryEntity(c.env, id);
     if (!await entity.exists()) return notFound(c);
+    // CAS check
+    const currentVersion = (entity as any)._version;
+    if (body.version !== currentVersion) {
+      return c.json({ success: false, error: 'Conflict: Stale data. Please refresh.' }, 409);
+    }
     const updated = await entity.mutate(s => ({
       ...s,
       data: body.data,
@@ -73,7 +92,17 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
       publishedAt: s.status === 'draft' && body.status === 'published' ? Date.now() : s.publishedAt,
       version: s.version + 1,
     }));
-    return ok(c, updated);
+    return ok(c, { ...updated, version: (entity as any)._version });
+  });
+  app.post('/api/entries/:id/publish', async (c) => {
+    const entity = new ContentEntryEntity(c.env, c.req.param('id'));
+    if (!await entity.exists()) return notFound(c);
+    return ok(c, await entity.publish());
+  });
+  app.post('/api/entries/:id/unpublish', async (c) => {
+    const entity = new ContentEntryEntity(c.env, c.req.param('id'));
+    if (!await entity.exists()) return notFound(c);
+    return ok(c, await entity.unpublish());
   });
   app.delete('/api/entries/:id', async (c) => ok(c, { deleted: await ContentEntryEntity.delete(c.env, c.req.param('id')) }));
   // MEDIA
@@ -92,11 +121,13 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
     return ok(c, await MediaEntity.create(c.env, newMedia));
   });
   app.delete('/api/media/:id', async (c) => ok(c, { deleted: await MediaEntity.delete(c.env, c.req.param('id')) }));
+  // SETTINGS (Mock)
+  app.get('/api/settings', (c) => ok(c, { siteTitle: 'MuseCMS', apiKeys: [{ key: 'mock-key-xxxx', label: 'Default Key' }] }));
+  app.post('/api/settings', (c) => ok(c, { message: 'Settings updated (mock)' }));
   // --- Template API Routes (kept for compatibility) ---
   app.get('/api/test', (c) => c.json({ success: true, data: { name: 'CF Workers Demo' }}));
   // USERS
   app.get('/api/users', async (c) => {
-    await UserEntity.ensureSeed(c.env);
     const cq = c.req.query('cursor');
     const lq = c.req.query('limit');
     const page = await UserEntity.list(c.env, cq ?? null, lq ? Math.max(1, (Number(lq) | 0)) : undefined);
@@ -109,7 +140,6 @@ export function userRoutes(app: Hono<{ Bindings: Env }>) {
   });
   // CHATS
   app.get('/api/chats', async (c) => {
-    await ChatBoardEntity.ensureSeed(c.env);
     const cq = c.req.query('cursor');
     const lq = c.req.query('limit');
     const page = await ChatBoardEntity.list(c.env, cq ?? null, lq ? Math.max(1, (Number(lq) | 0)) : undefined);

@@ -12,6 +12,8 @@ import { HomePage } from '@/pages/HomePage';
 import { ContentLibrary } from '@/pages/ContentLibrary';
 import { EditorPage } from '@/pages/EditorPage';
 import { MediaLibrary } from '@/pages/MediaLibrary';
+import { ContentTypes } from '@/pages/ContentTypes';
+import { Settings } from '@/pages/Settings';
 import { DemoPage } from '@/pages/DemoPage'; // Keep demo page for now
 const queryClient = new QueryClient();
 const router = createBrowserRouter([
@@ -38,6 +40,16 @@ const router = createBrowserRouter([
   {
     path: "/media",
     element: <MediaLibrary />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/types",
+    element: <ContentTypes />,
+    errorElement: <RouteErrorBoundary />,
+  },
+  {
+    path: "/settings",
+    element: <Settings />,
     errorElement: <RouteErrorBoundary />,
   },
   {
