@@ -1,148 +1,130 @@
-// Home page of the app, Currently a demo page for demonstration.
-// Please rewrite this file to implement your own logic. Do not replace or delete it, simply rewrite this HomePage.tsx file.
-import { useEffect } from 'react'
-import { Sparkles } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { Toaster, toast } from '@/components/ui/sonner'
-import { create } from 'zustand'
-import { useShallow } from 'zustand/react/shallow'
-import { AppLayout } from '@/components/layout/AppLayout'
-
-// Timer store: independent slice with a clear, minimal API, for demonstration
-type TimerState = {
-  isRunning: boolean;
-  elapsedMs: number;
-  start: () => void;
-  pause: () => void;
-  reset: () => void;
-  tick: (deltaMs: number) => void;
-}
-
-const useTimerStore = create<TimerState>((set) => ({
-  isRunning: false,
-  elapsedMs: 0,
-  start: () => set({ isRunning: true }),
-  pause: () => set({ isRunning: false }),
-  reset: () => set({ elapsedMs: 0, isRunning: false }),
-  tick: (deltaMs) => set((s) => ({ elapsedMs: s.elapsedMs + deltaMs })),
-}))
-
-// Counter store: separate slice to showcase multiple stores without coupling
-type CounterState = {
-  count: number;
-  inc: () => void;
-  reset: () => void;
-}
-
-const useCounterStore = create<CounterState>((set) => ({
-  count: 0,
-  inc: () => set((s) => ({ count: s.count + 1 })),
-  reset: () => set({ count: 0 }),
-}))
-
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
+import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { api } from '@/lib/api-client';
+import type { ContentEntry, ContentType, Media } from '@shared/types';
+import { FileText, Image, Layers, PlusCircle } from 'lucide-react';
+import { Toaster } from '@/components/ui/sonner';
+import { format } from 'date-fns';
+const StatCard = ({ title, value, icon, isLoading }: { title: string; value: number; icon: React.ReactNode; isLoading: boolean }) => (
+  <Card className="transition-all hover:shadow-md hover:-translate-y-0.5">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium">{title}</CardTitle>
+      {icon}
+    </CardHeader>
+    <CardContent>
+      {isLoading ? (
+        <Skeleton className="h-8 w-1/2" />
+      ) : (
+        <div className="text-2xl font-bold">{value}</div>
+      )}
+    </CardContent>
+  </Card>
+);
 export function HomePage() {
-  // Select only what is needed to avoid unnecessary re-renders
-  const { isRunning, elapsedMs } = useTimerStore(
-    useShallow((s) => ({ isRunning: s.isRunning, elapsedMs: s.elapsedMs })),
-  )
-  const start = useTimerStore((s) => s.start)
-  const pause = useTimerStore((s) => s.pause)
-  const resetTimer = useTimerStore((s) => s.reset)
-  const count = useCounterStore((s) => s.count)
-  const inc = useCounterStore((s) => s.inc)
-  const resetCount = useCounterStore((s) => s.reset)
-
-  // Drive the timer only while running; avoid update-depth issues with a scoped RAF
-  useEffect(() => {
-    if (!isRunning) return
-    let raf = 0
-    let last = performance.now()
-    const loop = () => {
-      const now = performance.now()
-      const delta = now - last
-      last = now
-      // Read store API directly to keep effect deps minimal and stable
-      useTimerStore.getState().tick(delta)
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [isRunning])
-
-  const onPleaseWait = () => {
-    inc()
-    if (!isRunning) {
-      start()
-      toast.success('Building your app…', {
-        description: 'Hang tight, we\'re setting everything up.',
-      })
-    } else {
-      pause()
-      toast.info('Taking a short pause', {
-        description: 'We\'ll continue shortly.',
-      })
-    }
-  }
-
-  const formatted = formatDuration(elapsedMs)
-
+  const { data: entriesData, isLoading: isLoadingEntries } = useQuery({
+    queryKey: ['entries', { limit: 3 }],
+    queryFn: () => api<{ items: ContentEntry[] }>('/api/entries?limit=3'),
+  });
+  const { data: typesData, isLoading: isLoadingTypes } = useQuery({
+    queryKey: ['content-types'],
+    queryFn: () => api<{ items: ContentType[] }>('/api/content-types'),
+  });
+  const { data: mediaData, isLoading: isLoadingMedia } = useQuery({
+    queryKey: ['media'],
+    queryFn: () => api<{ items: Media[] }>('/api/media'),
+  });
+  const recentEntries = entriesData?.items ?? [];
   return (
     <AppLayout>
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 overflow-hidden relative">
-        <ThemeToggle />
-        <div className="absolute inset-0 bg-gradient-rainbow opacity-10 dark:opacity-20 pointer-events-none" />
-        <div className="text-center space-y-8 relative z-10 animate-fade-in">
-          <div className="flex justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-primary floating">
-              <Sparkles className="w-8 h-8 text-white rotating" />
-            </div>
-          </div>
-          <h1 className="text-5xl md:text-7xl font-display font-bold text-balance leading-tight">
-            Creating your <span className="text-gradient">app</span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto text-pretty">
-            Your application would be ready soon.
-          </p>
-          <div className="flex justify-center gap-4">
-            <Button 
-              size="lg"
-              onClick={onPleaseWait}
-              className="btn-gradient px-8 py-4 text-lg font-semibold hover:-translate-y-0.5 transition-all duration-200"
-              aria-live="polite"
-            >
-              Please Wait
-            </Button>
-          </div>
-          <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-            <div>
-              Time elapsed: <span className="font-medium tabular-nums text-foreground">{formatted}</span>
-            </div>
-            <div>
-              Coins: <span className="font-medium tabular-nums text-foreground">{count}</span>
-            </div>
-          </div>
-          <div className="flex justify-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => { resetTimer(); resetCount(); toast('Reset complete') }}>
-              Reset
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => { inc(); toast('Coin added') }}>
-              Add Coin
-            </Button>
+      <div className="relative min-h-screen">
+        <ThemeToggle className="absolute top-6 right-6" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-8 md:py-10 lg:py-12">
+            <section className="relative text-center py-20 md:py-28 rounded-2xl overflow-hidden bg-background">
+              <div className="absolute inset-0 bg-gradient-mesh opacity-20 dark:opacity-30"></div>
+              <div className="relative z-10">
+                <h1 className="text-5xl md:text-6xl font-display font-bold text-balance leading-tight bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/70">
+                  MuseCMS
+                </h1>
+                <p className="mt-4 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto text-pretty">
+                  A minimalist, visually-polished headless CMS for content teams who love to create.
+                </p>
+              </div>
+            </section>
+            <section className="mt-12 space-y-12">
+              {/* Quick Stats */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <StatCard title="Total Entries" value={entriesData?.items.length || 0} icon={<FileText className="h-4 w-4 text-muted-foreground" />} isLoading={isLoadingEntries} />
+                <StatCard title="Content Types" value={typesData?.items.length || 0} icon={<Layers className="h-4 w-4 text-muted-foreground" />} isLoading={isLoadingTypes} />
+                <StatCard title="Media Items" value={mediaData?.items.length || 0} icon={<Image className="h-4 w-4 text-muted-foreground" />} isLoading={isLoadingMedia} />
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Recent Entries */}
+                <div className="lg:col-span-2">
+                  <h2 className="text-2xl font-semibold mb-4">Recent Activity</h2>
+                  <Card>
+                    <CardContent className="p-0">
+                      <div className="divide-y">
+                        {isLoadingEntries ? (
+                          Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="p-4 flex items-center space-x-4">
+                              <Skeleton className="h-10 w-10 rounded-md" />
+                              <div className="space-y-2 flex-1">
+                                <Skeleton className="h-4 w-3/4" />
+                                <Skeleton className="h-4 w-1/2" />
+                              </div>
+                            </div>
+                          ))
+                        ) : recentEntries.length > 0 ? (
+                          recentEntries.map((entry) => (
+                            <Link key={entry.id} to={`/editor/${entry.id}`} className="flex items-center justify-between p-4 hover:bg-accent transition-colors">
+                              <div>
+                                <p className="font-medium">{entry.data.title || 'Untitled Entry'}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Updated {format(new Date(entry.updatedAt), "MMM d, yyyy")}
+                                </p>
+                              </div>
+                              <span className={`px-2 py-1 text-xs rounded-full ${entry.status === 'published' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'}`}>
+                                {entry.status}
+                              </span>
+                            </Link>
+                          ))
+                        ) : (
+                          <p className="p-6 text-center text-muted-foreground">No entries yet. Create one!</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+                {/* Shortcuts */}
+                <div>
+                  <h2 className="text-2xl font-semibold mb-4">Shortcuts</h2>
+                  <div className="space-y-3">
+                    <Button asChild size="lg" className="w-full justify-start">
+                      <Link to="/editor"><PlusCircle className="mr-2 h-4 w-4" /> Create New Entry</Link>
+                    </Button>
+                    <Button asChild variant="secondary" size="lg" className="w-full justify-start">
+                      <Link to="/library"><FileText className="mr-2 h-4 w-4" /> Content Library</Link>
+                    </Button>
+                    <Button asChild variant="secondary" size="lg" className="w-full justify-start">
+                      <Link to="/media"><Image className="mr-2 h-4 w-4" /> Media Library</Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
-        <footer className="absolute bottom-8 text-center text-muted-foreground/80">
-          <p>Powered by Cloudflare</p>
+        <footer className="text-center py-6 text-sm text-muted-foreground">
+          Built with ❤️ at Cloudflare
         </footer>
-        <Toaster richColors closeButton />
+        <Toaster richColors />
       </div>
     </AppLayout>
-  )
+  );
 }
