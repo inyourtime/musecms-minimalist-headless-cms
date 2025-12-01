@@ -13,7 +13,7 @@ import type { ContentType, ContentField, FieldType } from '@shared/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -69,11 +69,14 @@ const ContentTypeForm = ({ type, onFinished }: { type?: ContentType, onFinished:
   const sensors = useSensors(useSensor(PointerSensor));
   const handleDragEnd = (event: any) => {
     const { active, over } = event;
-    if (active.id !== over.id) {
-      const oldIndex = fields.findIndex((f) => f.id === active.id);
-      const newIndex = fields.findIndex((f) => f.id === over.id);
-      move(oldIndex, newIndex);
-    }
+    if (!over) return;
+    const activeId = active?.id;
+    const overId = over?.id;
+    if (!activeId || !overId || activeId === overId) return;
+    const oldIndex = fields.findIndex((f) => f.id === activeId);
+    const newIndex = fields.findIndex((f) => f.id === overId);
+    if (oldIndex === -1 || newIndex === -1) return;
+    move(oldIndex, newIndex);
   };
   return (
     <Form {...form}>
@@ -115,7 +118,7 @@ export function ContentTypes() {
             <h1 className="text-3xl font-bold">Content Types</h1>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" /> New Type</Button></DialogTrigger>
-              <DialogContent><DialogHeader><DialogTitle>Create New Content Type</DialogTitle></DialogHeader><ContentTypeForm onFinished={() => setIsDialogOpen(false)} /></DialogContent>
+              <DialogContent><DialogHeader><DialogTitle>Create New Content Type</DialogTitle><DialogDescription>Create a new content type with fields and settings.</DialogDescription></DialogHeader><ContentTypeForm onFinished={() => setIsDialogOpen(false)} /></DialogContent>
             </Dialog>
           </div>
           {error && <div className="text-red-500">Failed to load content types: {error.message}</div>}
